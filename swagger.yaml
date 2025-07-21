@@ -1,0 +1,929 @@
+openapi: 3.0.0
+info:
+  title: AI Rate Limiter API
+  version: 1.0.0
+  description: API documentation for AI Rate Limiter service
+servers:
+  - url: http://localhost:8501
+    description: Local development server
+
+
+
+paths:
+  /queue/:
+    get:
+      tags:
+          - Queue
+      summary: List all workspaces
+      parameters:
+        - in: query
+          name: workspace_id
+          schema:
+            type: string
+          description: Filter by workspace ID
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  workspaces:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        workspace_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/register:
+    post:
+      tags:
+            - Queue
+      summary: Register a new workspace and provider keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  example: "4f79ba74-84cc-43ec-bc4f-000000000009"
+                providers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: "openai"
+                      api_key:
+                        type: string
+                        example: "sk-..."
+                      rate_limit:
+                        type: integer
+                        example: 100
+                      rate_limit_period:
+                        type: string
+                        enum: [second, minute, hour, day]
+                        example: "hour"
+                      rate_limit_period_value:
+                        type: integer
+                        minimum: 1
+                        example: 2
+                        description: The numeric value for the rate limit period (e.g. 2 for 2 hours)
+                      config:
+                        type: object
+                        properties:
+                          model:
+                            type: string
+                            example: "gpt-4"
+                          api_version:
+                            type: string
+                            example: "2023-05-15"
+                          endpoint:
+                            type: string
+                            example: "https://my-azure-endpoint.openai.azure.com"
+      responses:
+        '201':
+          description: Workspace registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterWorkspaceResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/delete/{id}:
+    delete:
+      tags:
+          - Queue
+      summary: Delete an existing workspace
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Workspace 4f79ba74-84cc-43ec-bc4f-000000000009 successfully deleted"
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/clear/{workspace_id}:
+    post:
+      tags:
+          - Queue
+      summary: Clear all messages and stop workers for a workspace
+      parameters:
+        - in: path
+          name: workspace_id
+          required: true
+          schema:
+            type: string
+          description: ID of the workspace to clear
+      responses:
+        '200':
+          description: Workspace cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Workspace 4f79ba74-84cc-43ec-bc4f-000000000009 cleared: stopped all workers and removed queued messages"
+                  workers_stopped:
+                    type: integer
+                    example: 2
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /provider-keys/:
+    get:
+      tags:
+          - Ai-Provider Keys
+      summary: List all provider keys for a workspace
+      parameters:
+        - in: query
+          name: workspace_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of provider keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        api_key:
+                          type: string
+                          example: "sk-proj-xxxxxx"
+                        config:
+                          type: object
+                          properties:
+                            api_version:
+                              type: string
+                              example: "2023-05-15"
+                            endpoint:
+                              type: string
+                              example: "https://my-azure-endpoint.openai.azure.com"
+                            model:
+                              type: string
+                              example: "gpt-4"  
+                        created_date:
+                          type: string
+                          example: "Tue, 06 May 2025 20:01:37 GMT"
+                        key_id:
+                          type: string
+                          example: "51975e48-fc5b-4444-ac1c-529ad2953eab"
+                        name:
+                          type: string
+                          example: "openai"
+                        rate_limit:
+                          type: integer
+                          example: 100
+                        rate_limit_period:
+                          type: string
+                          example: "hour"
+                        updated_date:
+                          type: string
+                          example: "Tue, 06 May 2025 20:01:37 GMT"
+                        workspace_id:
+                          type: integer
+                          example: 1
+                  success:
+                    type: boolean
+                    example: true
+
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider Keys not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+
+  /provider-key/add:
+    post:
+      tags:
+          - Ai-Provider Keys
+      summary: Add a new provider key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workspace_id:
+                  type: string
+                  example: "4f79ba74-84cc-43ec-bc4f-000000000009"
+                name:
+                  type: string
+                  example: ""
+                api_key:
+                  type: string
+                  example: "sk-proj-xxxxxxxxxxxxxxxx"
+                rate_limit:
+                  type: integer
+                  example: 100
+                config:
+                  type: object
+                  properties:
+                    model:
+                      type: string
+                      example: "gpt-4"
+                    api_version:
+                      type: string
+                      example: "2023-05-15"
+                    endpoint:
+                      type: string
+                      example: "https://my-azure-endpoint.openai.azure.com"
+      responses:
+        '201':
+          description: Provider key added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key_id:
+                    type: string
+                    example: "7089ffa7-a41c-413c-941d-de2bf035373c"
+                  message:
+                    type: string
+                    example: "Provider key added successfully"
+                  success:
+                    type: boolean
+                    example: true
+
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /provider-key/delete/{key_id}:
+    delete:
+      tags:
+          - Ai-Provider Keys
+      summary: Delete a provider key
+      parameters:
+        - in: path
+          name: key_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Provider key not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Provider key b9097140-af57-4fc2-9c39-0fe4fe691946 successfully deleted"
+                  success:
+                    type: boolean
+                    example: true
+        '404':
+          description: Provider key not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Provider key b9097140-af57-4fc2-9c39-0fe4fe691946 not found"
+                  success:
+                    type: boolean
+                    example: false
+
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /provider-key/update/{key_id}:
+    put:
+      tags:
+          - Ai-Provider Keys
+      summary: Update provider key settings
+      parameters:
+        - in: path
+          name: key_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderKeyUpdate'
+      responses:
+        '200':
+          description: Provider key updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key:
+                    type: string
+                    example: "......................"
+                  config:
+                    type: object
+                    properties:
+                      api_version:
+                        type: string
+                        example: "2023-05-15
+                      endpoint:
+                        type: string
+                        example: "https://my-azure-endpoint.openai.azure.com"
+                      model:
+                        type: string
+                        example: "gpt-4"
+                  created_date:
+                    type: string
+                    example: "Fri, 02 May 2025 15:17:16 GMT"
+                  name:
+                    type: string
+                    example: "openai"
+                  rate_limit:
+                    type: integer
+                    example: 1000
+                  rate_limit_period:
+                    type: string
+                    example: "600"
+                  updated_date:
+                    type: string
+                    example: "Fri, 02 May 2025 15:17:16 GMT"
+                  workspace_id:
+                    type: integer
+                    example: 2
+        '400':
+          description: Provider key not found or invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Provider key 24e583ef-eb8a-4c04-93df-06e606716d56 not found"
+                  success:
+                    type: boolean
+                    example: false
+
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /workers/scale/{workspace_id}:
+    post:
+      tags:
+          - Workers
+      summary: Scale worker processes
+      parameters:
+        - in: path
+          name: workspace_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                count:
+                  type: integer
+      responses:
+        '200':
+          description: Workers scaled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  current_count:
+                    type: integer
+                    example: 1
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                    nullable: true
+                    example: null
+                  previous_count:
+                    type: integer
+                    example: 0
+                  success:
+                    type: boolean
+                    example: true
+                  target_count:
+                    type: integer
+                    example: 1
+                  workers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        pid:
+                          type: integer
+                          example: 20972
+                        slug_id:
+                          type: string
+                          example: "160e6f16-9e2c-4d2b-a0ec-ba4d5334a6f9"
+                        started_at:
+                          type: string
+                          format: date-time
+                          example: "2025-05-07T04:38:02.059763"
+                        status:
+                          type: string
+                          example: "starting"
+                  workers_added:
+                    type: integer
+                    example: 1
+                  workers_removed:
+                    type: integer
+                    example: 0
+                  workspace_id:
+                    type: string
+                    example: "4f79ba74-84cc-43ec-bc4f-000000000009"
+
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /workers/{workspace_id}:
+    get:
+      tags:
+          - Workers
+      summary: List all workers for a workspace
+      parameters:
+        - in: path
+          name: workspace_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of workers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        last_heartbeat:
+                          type: string
+                          format: date-time
+                          example: "2025-05-06T13:07:48.786497"
+                        log_file:
+                          type: string
+                          example: "app/static/logs/workers\\2025\\05\\06/worker_18140.log"
+                        pid:
+                          type: integer
+                          example: 18140
+                        started_at:
+                          type: string
+                          format: date-time
+                          example: "2025-05-06T12:46:37.794758"
+                        status:
+                          type: string
+                          example: "stopped"
+                        worker_id:
+                          type: string
+                          example: "1bed0c6e-0ffe-4456-8f33-5443a48d94fc"
+                  workspace_id:
+                    type: string
+                    example: "4f79ba74-84cc-43ec-bc4f-000000000009"
+
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /message/publish:
+    post:
+      tags:
+          - Messages
+      summary: Publish a new message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishMessage'
+      responses:
+        '201':
+          description: Message published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Message queued for processing"
+                  message_id:
+                    type: string
+                    example: "7ac1a878-fa55-450d-b25c-60f0c14ed847"
+                  provider:
+                    type: string
+                    example: "openai"
+                  sequence_index:
+                    type: integer
+                    example: 1
+                  sucess:
+                    type: boolean
+                    example: True
+                  workspace_id:
+                    type: string
+                    example: "4f79ba74-84cc-43ec-bc4f-000000000009"
+        '404':
+          description: Workspace not registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Workspace 4f79ba74-84cc-43ec-bc4f-000000000006 is not registered. Please register the workspace first."
+                  registration_required:
+                    type: boolean
+                    example: true
+                  success:
+                    type: boolean
+                    example: false
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Internal server error occurred while publishing the message."
+                  success:
+                    type: boolean
+                    example: false
+
+  /message/{message_id}:
+    get:
+      tags:
+          - Messages
+      summary: Retrieve message status and result
+      parameters:
+        - in: path
+          name: message_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message result retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created_date:
+                    type: string
+                    format: date-time
+                    example: "2025-05-06T21:39:11.662549"
+                  message_id:
+                    type: string
+                    example: "8b930b54-0fd5-4df7-8c86-bad5d108b614"
+                  provider_key_id:
+                    type: integer
+                    example: 3
+                  request:
+                    type: string
+                    description: Original request payload as JSON string
+                    example: "{\"slug_id\": \"8b930b54-0fd5-4df7-8c86-bad5d108b614\", \"sequence_index\": 1, \"workspace_id\": \"4f79ba74-84cc-43ec-bc4f-000000000009\", \"model\": \"gpt-4\", \"provider\": \"openai\", \"system_prompt\": \"You are a helpful assistant.\", \"prompt\": \"What is the capital of France?\", \"content\": \"I need to know about France's capital city.\", \"html_tag\": \"p\", \"timestamp\": 1746547751.6695044, \"response_format\": \"json\"}"
+                  result:
+                    type: object
+                    properties:
+                      model:
+                        type: string
+                        example: "gpt-4"
+                      processed_text:
+                        type: string
+                        example: "The capital of France is Paris."
+                      processing_time:
+                        type: number
+                        format: float
+                        example: 1.7431144714355469
+                      tokens:
+                        type: object
+                        properties:
+                          completion_tokens:
+                            type: integer
+                            example: 8
+                          prompt_tokens:
+                            type: integer
+                            example: 34
+                          total_tokens:
+                            type: integer
+                            example: 42
+                  success:
+                    type: boolean
+                    example: true
+                  status_code:
+                    type: integer
+                    example: 200
+                  updated_date:
+                    type: string
+                    format: date-time
+                    example: "2025-05-06T21:39:11.662549"
+                  workspace_id:
+                    type: integer
+                    example: 1
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Message 8b930b54-0fd5-4df7-8c86-bad5d108b612 not found"
+                  success:
+                    type: boolean
+                    example: false
+
+components:
+  schemas:
+    RegisterWorkspace:
+      type: object
+      properties:
+        workspace_id:
+          type: string
+          format: uuid
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Provider'
+
+    #  NEW success response
+    RegisterWorkspaceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        workspace_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        provider_key_ids:
+          type: array
+          items:
+            type: object
+            properties:
+              key_id:
+                type: string
+                format: uuid
+              provider:
+                type: string
+        provider_errors:
+          type: array
+          items:
+            type: object
+            properties:
+              provider:
+                type: string
+              error:
+                type: string
+          nullable: true
+
+    #  NEW error response
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+
+    Provider:
+      type: object
+      properties:
+        name:
+          type: string
+        api_key:
+          type: string
+        
+
+    ProviderKey:
+      type: object
+      properties:
+        name:
+          type: string
+        api_key:
+          type: string
+        rate_limit:
+          type: integer
+        rate_limit_period:
+          type: string
+          enum: [second, minute, hour, day]
+        rate_limit_period_value:
+          type: integer
+          minimum: 1
+          description: The numeric value for the rate limit period (e.g. 2 for 2 hours)
+        config:
+          type: object
+
+    ProviderKeyUpdate:
+      type: object
+      properties:
+        api_key:
+          type: string
+        rate_limit:
+          type: integer
+        rate_limit_period:
+          type: string
+          enum: [second, minute, hour, day]
+        rate_limit_period_value:
+          type: integer
+          minimum: 1
+          description: The numeric value for the rate limit period (e.g. 2 for 2 hours)
+        config:
+          type: object
+
+    PublishMessage:
+      type: object
+      properties:
+        prompt:
+          type: string
+        content:
+          type: string
+        workspace_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+        system_prompt:
+          type: string
+        sequence_index:
+          type: integer
+        html_tag:
+          type: string
+        response_format:
+          type: string

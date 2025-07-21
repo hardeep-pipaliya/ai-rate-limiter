@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  ai-rate-limiter:
+    build: .
+    image: ai-rate-limiter-claude-new
+    ports:
+      - "8502:8501"
+    env_file:
+      - .env.docker
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://postgres:1212@postgres:5432/ai_rate_limiter_db
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=8x!Rz#Tq91Ld@VeW
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c ''import socket; socket.socket().connect(("localhost", 8501))'' || exit 1',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - rabbitmq_shared_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1212
+      - POSTGRES_DB=ai_rate_limiter_db
+    networks:
+      - rabbitmq_shared_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # db-setup:
+  #   image: ai-rate-limiter-claude-new
+  #   environment:
+  #     - FLASK_APP=run.py
+  #     - DATABASE_URL=postgresql://postgres:1212@postgres:5432/ai_rate_limiter_db
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   command: >
+  #     bash -c "
+  #       sleep 5;
+  #       flask db upgrade;
+  #     "
+  #   networks:
+  #     - rabbitmq_shared_network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=8x!Rz#Tq91Ld@VeW
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - rabbitmq_shared_network
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  rabbitmq_shared_network:
+    external: true
