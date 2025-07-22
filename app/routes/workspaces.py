@@ -15,6 +15,8 @@ from sqlalchemy.exc import SQLAlchemyError
 import uuid
 from datetime import datetime
 from app.models.workers import Worker as WorkerModel
+import requests
+import os
 
 
 logger = LoggerSetup().setup_logger()
@@ -100,6 +102,9 @@ class WorkspaceRoutes:
                         "key_id": str(provider_key.slug_id),
                         "provider": provider_key.name
                     })
+                    
+                    configure_apisix_route(workspace_id, provider)
+                    
                     logger.info(f"Provider key added successfully for: {provider['name']}")
                 except Exception as e:
                     logger.error(f"Failed to add provider key: {str(e)}")
@@ -137,6 +142,88 @@ class WorkspaceRoutes:
                 "success": False,
                 "message": str(e)
             }), 500
+
+    def configure_apisix_route(workspace_id, provider):
+        try:
+            logger.info(f"Configuring APISIX route for workspace {workspace_id} and provider {provider['name']}")
+
+            model = provider['config'].get('model')
+            endpoint = provider['config'].get('endpoint')
+            api_key = provider['api_key']
+            tokens = provider.get('rate_limit', 1000)
+            period = provider.get('rate_limit_period', 'minute')
+            period_value = provider.get('rate_limit_period_value', 1)
+
+            # Calculate time window in seconds
+            period_map = {
+                'second': 1,
+                'minute': 60,
+                'hour': 3600,
+                'day': 86400
+            }
+            time_window = period_map.get(period.lower(), 60) * period_value
+
+            route_uri = f"/workspace_id"
+            route_id = f"ai-rate-limiting-route"
+
+            payload = {
+                "uri": route_uri,
+                "id": route_id,
+                "methods": ["POST"],
+                "plugins": {
+                    "ai-proxy": {
+                        "provider": provider['name'],
+                        "auth": {
+                            "header": {
+                                "Authorization": f"Bearer {api_key}"
+                            }
+                        },
+                        "options": {
+                            "model": model,
+                            "temperature": 0.7,
+                            "max_tokens": 512
+                        },
+                        "override": {
+                            "endpoint": f"{endpoint}/chat/completions"
+                        }
+                    },
+                    "ai-rate-limiting": {
+                        "limit": tokens,
+                        "time_window": time_window,
+                        "key": "header",
+                        "key_name": "X-Workspace-ID",
+                        "limit_strategy": "prompt_tokens",
+                        "rejected_code": 429,
+                        "rejected_msg": "Rate limit exceeded"
+                    }
+                },
+                "upstream": {
+                    "type": "roundrobin",
+                    "nodes": {
+                        endpoint.replace("https://", "").replace("http://", "") + ":443": 1
+                    },
+                    "scheme": "https",
+                    "pass_host": "pass"
+                }
+            }
+
+            response = requests.put(
+                f"http://apisix:9180/apisix/admin/routes/{route_id}",
+                headers={
+                    "X-API-KEY": os.getenv("APISIX_ADMIN_KEY", "edd1c9f034335f136f87ad84b625c8f1"),
+                    "Content-Type": "application/json"
+                },
+                json=payload
+            )
+
+            if response.status_code not in [200, 201]:
+                raise Exception(f"APISIX error {response.status_code}: {response.text}")
+
+            logger.info(f"APISIX route {route_id} created successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to configure APISIX route: {str(e)}")
+
 
         
     @workspaces_bp.route('/', methods=['GET'])

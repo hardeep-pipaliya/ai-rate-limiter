@@ -1,0 +1,106 @@
+apisix:
+  node_listen: 9080              # APISIX listening port
+  enable_heartbeat: true
+  enable_admin: true
+  enable_admin_cors: true
+  enable_debug: false
+  
+  enable_dev_mode: false         # Sets nginx worker_processes to 1 if set to true
+  enable_reuseport: true         # Enable nginx SO_REUSEPORT switch if set to true.
+  enable_ipv6: false
+
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    host:                         # it's possible to define multiple etcd hosts addresses of the same etcd cluster.
+      - "http://etcd:2379"        # multiple etcd address
+    prefix: "/apisix"             # apisix configurations prefix
+    timeout: 30                   # 30 seconds
+  admin:
+    admin_listen:
+      ip: 0.0.0.0
+      port: 9180
+    allow_admin:
+      - 0.0.0.0/0
+    admin_key:
+      - name: "admin"
+        key: edd1c9f034335f136f87ad84b625c8f1
+        role: admin
+
+nginx_config:
+  error_log: "/dev/stderr"
+  error_log_level: "warn"
+  worker_rlimit_nofile: 20480
+  event:
+    worker_connections: 10620
+  http:
+    access_log: "/dev/stdout"
+    keepalive_timeout: 60s
+    client_header_timeout: 60s
+    client_body_timeout: 60s
+    keepalive_requests: 1000
+    client_max_body_size: 0
+    
+plugin_attr:
+  log-rotate:
+    interval: 3600
+    max_kept: 168
+
+plugins:
+  - real-ip
+  - ai
+  - ai-proxy
+  - ai-rate-limiting
+  - limit-count
+  - client-control
+  - proxy-control
+  - request-id
+  - zipkin
+  - request-validation
+  - openid-connect
+  - authz-keycloak
+  - wolf-rbac
+  - key-auth
+  - jwt-auth
+  - basic-auth
+  - authz-casbin
+  - authz-casdoor
+  - hmac-auth
+  - consumer-restriction
+  - cors
+  - uri-blocker
+  - ip-restriction
+  - ua-restriction
+  - referer-restriction
+  - csrf
+  - fault-injection
+  - mocking
+  - serverless-pre-function
+  - serverless-post-function
+  - limit-req
+  - limit-count
+  - limit-conn
+  - proxy-cache
+  - response-rewrite
+  - api-breaker
+  - traffic-split
+  - request-id
+  - proxy-mirror
+  - kafka-logger
+  - rocketmq-logger
+  - tcp-logger
+  - kafka-proxy
+  - dubbo-proxy
+  - http-logger
+  - file-logger
+  - grpc-transcode
+  - grpc-web
+  - public-api
+  - prometheus
+  - node-status
+  - redirect
+  - response-rewrite
+  - server-info
+  - batch-requests 

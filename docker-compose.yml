@@ -88,6 +88,25 @@ services:
     networks:
       - rabbitmq_shared_network
 
+  etcd:
+    image: bitnami/etcd:latest
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+    ports:
+      - "2379:2379"
+
+  apisix:
+    image: apache/apisix:3.13.0-debian
+    depends_on:
+      - etcd
+    volumes:
+      - ./config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    ports:
+      - "9080:9080"   
+      - "9180:9180"       
+
 volumes:
   postgres_data:
   rabbitmq_data:
@@ -95,3 +114,5 @@ volumes:
 networks:
   rabbitmq_shared_network:
     external: true
+
+ 
