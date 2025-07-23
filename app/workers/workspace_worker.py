@@ -995,15 +995,15 @@ Status: No messages will be processed until rate limit resets
             logger.info(f"Processing message {message_id} from {provider_name}")
 
             # Check if this provider is currently rate limited
-            wait_time = self._check_provider_rate_limit(provider_name)
-            if wait_time > 0:
-                # Update message status to reflect rate limit
-                self._safe_update_message_status(
-                    message_id, 
-                    "pending", 
-                    f"Rate limit active. Will retry after {wait_time:.1f} seconds"
-                )
-                return False  # Requeue the message
+            # wait_time = self._check_provider_rate_limit(provider_name)
+            # if wait_time > 0:
+            #     # Update message status to reflect rate limit
+            #     self._safe_update_message_status(
+            #         message_id, 
+            #         "pending", 
+            #         f"Rate limit active. Will retry after {wait_time:.1f} seconds"
+            #     )
+            #     return False  # Requeue the message
 
             # Process message with database context and retry logic
             max_db_attempts = 3
@@ -1074,24 +1074,24 @@ Status: No messages will be processed until rate limit resets
             estimated_tokens = len(total_text.split())
 
             # Check rate limit using the API key manager
-            allowed, current_usage, limit, reset_time = self.api_key_manager.rate_limiter.check_rate_limit(
-                self.workerspace_id,
-                provider_key.name,
-                provider_key.id,
-                estimated_tokens
-            )
+            # allowed, current_usage, limit, reset_time = self.api_key_manager.rate_limiter.check_rate_limit(
+            #     self.workerspace_id,
+            #     provider_key.name,
+            #     provider_key.id,
+            #     estimated_tokens
+            # )
 
             logger.info(f"Rate limit check: allowed={allowed}, usage={current_usage}, limit={limit}")
 
-            if not allowed:
-                logger.warning(f"Rate limit exceeded for provider {provider_key.name}")
-                self._set_provider_rate_limit(provider_key.name, reset_time)
-                self._safe_update_message_status(
-                    message_id,
-                    MessageStatus.PENDING.value,
-                    f"Rate limit exceeded. Current usage: {current_usage}/{limit} tokens. Will retry in {reset_time} seconds"
-                )
-                return False  # Requeue this message
+            # if not allowed:
+            #     logger.warning(f"Rate limit exceeded for provider {provider_key.name}")
+            #     self._set_provider_rate_limit(provider_key.name, reset_time)
+            #     self._safe_update_message_status(
+            #         message_id,
+            #         MessageStatus.PENDING.value,
+            #         f"Rate limit exceeded. Current usage: {current_usage}/{limit} tokens. Will retry in {reset_time} seconds"
+            #     )
+            #     return False  # Requeue this message
             
             # Mark message as processing BEFORE making API call
             message.status = MessageStatus.PROCESSING.value
@@ -1106,10 +1106,10 @@ Status: No messages will be processed until rate limit resets
                 actual_tokens = self._extract_token_count(result, estimated_tokens)
                 
                 # Record actual token usage
-                self.api_key_manager.record_usage(
-                    provider_key_id=provider_key.id,
-                    token_count=actual_tokens
-                )
+                # self.api_key_manager.record_usage(
+                #     provider_key_id=provider_key.id,
+                #     token_count=actual_tokens
+                # )
 
                 # Update token count with actual usage
                 message.token_count = actual_tokens

@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime
 from app.models.workers import Worker as WorkerModel
 import requests
-import os
+import osfrom urllib.parse import urlparse
 
 
 logger = LoggerSetup().setup_logger()
@@ -36,10 +36,13 @@ class WorkspaceRoutes:
             model = provider['config'].get('model')
             endpoint = provider['config'].get('endpoint')
             api_key = provider['api_key']
-            tokens = provider.get('rate_limit', 1000)
+            tokens = provider.get('rate_limit', 100)
             period = provider.get('rate_limit_period', 'minute')
             period_value = provider.get('rate_limit_period_value', 1)
-
+            parsed = urlparse(endpoint)
+            
+            host = parsed.hostname or endpoint.replace("http://", "").replace("https://", "")
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
             # Calculate time window in seconds
             period_map = {
                 'second': 1,
@@ -49,7 +52,7 @@ class WorkspaceRoutes:
             }
             time_window = period_map.get(period.lower(), 60) * period_value
 
-            route_uri = f"/{workspace_id}"
+            route_uri = "/v1/chat/completions"
             route_id = f"ai-rate-limiting-route-{workspace_id}"
 
             payload = {
@@ -67,7 +70,7 @@ class WorkspaceRoutes:
                         "options": {
                             "model": model,
                             "temperature": 0.7,
-                            "max_tokens": 512
+                            # "max_tokens": 512
                         },
                         "override": {
                             "endpoint": f"{endpoint}/chat/completions"
@@ -86,10 +89,8 @@ class WorkspaceRoutes:
                 "upstream": {
                     "type": "roundrobin",
                     "nodes": {
-                        endpoint.replace("https://", "").replace("http://", "") + ":443": 1
+                        f"{host}:{port}": 1
                     },
-                    "scheme": "https",
-                    "pass_host": "pass"
                 }
             }
 
